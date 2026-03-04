@@ -70,17 +70,11 @@ class JobRequirement(BaseModel):
     job_description: str
     required_skills: str = ""
     experience_level: str = ""
-    
-    class Config:
-        arbitrary_types_allowed = True
 
 class ResumeAnalysisResponse(BaseModel):
     success: bool
     data: Optional[Dict[str, Any]] = None
     message: str = ""
-    
-    class Config:
-        arbitrary_types_allowed = True
 
 @app.get("/")
 async def root():
