@@ -51,6 +51,9 @@ dist-ssr/
 backend/config.py
 !backend/config.example.py
 
+# Backend dependencies (Vercel will install automatically)
+backend/python/
+
 # Cache
 .cache/
 *.cache

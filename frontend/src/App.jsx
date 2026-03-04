@@ -45,7 +45,7 @@ const { Panel } = Collapse;
 
 // API配置
 const API_BASE_URL = import.meta.env.PROD 
-  ? 'https://api-lanxianlei.cn-hangzhou.fcapp.run' 
+  ? 'https://your-project-name.vercel.app' 
   : 'http://localhost:8000';
 
 function App() {

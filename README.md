@@ -30,20 +30,22 @@
 
 ## 🚀 快速开始
 
-### 1. 环境要求
+### 本地开发
+
+#### 1. 环境要求
 
 - Python 3.8+
 - Node.js 14+
 - OpenAI API密钥
 
-### 2. 获取OpenAI API密钥
+#### 2. 获取OpenAI API密钥
 
 1. 访问 https://platform.openai.com/api-keys
 2. 注册/登录账号
 3. 创建新密钥
 4. 复制密钥（格式：`sk-...`）
 
-### 3. 配置API密钥
+#### 3. 配置API密钥
 
 编辑 `backend/config.py`：
 
@@ -54,7 +56,7 @@ OPENAI_MODEL = "gpt-3.5-turbo"  # 或 "gpt-4"
 
 详细配置说明请查看 `backend/API_KEY_SETUP.md`
 
-### 4. 安装依赖
+#### 4. 安装依赖
 
 ```bash
 # 后端依赖
@@ -66,7 +68,7 @@ cd frontend
 npm install
 ```
 
-### 5. 启动服务
+#### 5. 启动服务
 
 **方式一：使用启动脚本（推荐）**
 
@@ -86,11 +88,29 @@ cd frontend
 npm run dev
 ```
 
-### 6. 访问应用
+#### 6. 访问应用
 
 - 前端：http://localhost:5173/resume-analyzer/
 - 后端API：http://localhost:8000
 - API文档：http://localhost:8000/docs
+
+### 部署到 Vercel
+
+详细部署指南请查看: [VERCEL_DEPLOYMENT_GUIDE.md](VERCEL_DEPLOYMENT_GUIDE.md)
+
+**快速部署步骤:**
+
+1. 推送代码到 GitHub
+2. 在 Vercel 导入项目
+3. 配置环境变量 (OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL)
+4. 点击部署
+5. 更新前端 API 地址
+
+**优势:**
+- ✅ 自动部署 - 推送到 GitHub 自动部署
+- ✅ 免费额度 - 个人项目完全免费
+- ✅ 全球 CDN - 访问速度快
+- ✅ 简单配置 - 无需配置服务器
 
 ## 📖 使用流程
 
@@ -133,28 +153,30 @@ npm run dev
 
 ```
 ai-resume-analyzer/
-├── backend/                    # 后端服务
+├── api/
+│   └── index.py              # Vercel 入口文件
+│
+├── backend/                   # 后端服务
 │   ├── app/
-│   │   ├── main.py            # FastAPI主程序
+│   │   ├── main.py           # FastAPI主程序
 │   │   ├── services/
-│   │   │   ├── pdf_parser.py  # PDF解析
-│   │   │   └── ai_service.py  # AI服务（核心）
+│   │   │   ├── pdf_parser.py # PDF解析
+│   │   │   └── ai_service.py # AI服务（核心）
 │   │   └── utils/
-│   │       └── cache.py       # 缓存管理
-│   ├── config.py              # ⭐ API配置（需填写）
-│   ├── requirements.txt       # Python依赖
-│   └── test_api.py           # API测试脚本
+│   │       └── cache.py      # 缓存管理
+│   ├── config.py             # ⭐ API配置（需填写）
+│   └── requirements.txt      # Python依赖
 │
-├── frontend/                   # 前端应用
+├── frontend/                  # 前端应用
 │   ├── src/
-│   │   ├── App.jsx           # 主组件
-│   │   ├── index.css         # 样式
-│   │   └── main.jsx          # 入口
-│   └── package.json          # Node依赖
+│   │   ├── App.jsx          # 主组件
+│   │   ├── index.css        # 样式
+│   │   └── main.jsx         # 入口
+│   └── package.json         # Node依赖
 │
-├── start_dev.py              # 启动脚本
-├── README.md                 # 项目说明（本文件）
-└── TECHNICAL_INTERVIEW_GUIDE.md  # 技术面试指南
+├── vercel.json               # Vercel 配置
+├── start_dev.py             # 本地启动脚本
+└── README.md                # 项目说明（本文件）
 ```
 
 ## 💰 成本估算
@@ -235,11 +257,8 @@ TIMEOUT = 30           # 超时时间（秒）
 
 ## 📚 相关文档
 
+- [Vercel 部署指南](VERCEL_DEPLOYMENT_GUIDE.md) - 完整的 Vercel 部署流程
 - [API密钥配置指南](backend/API_KEY_SETUP.md) - OpenAI API配置详解
-- [技术面试指南](TECHNICAL_INTERVIEW_GUIDE.md) - 面试准备材料
-- [部署指南](DEPLOYMENT_GUIDE.md) - 完整的云端部署流程
-- [快速提交指南](HOW_TO_SUBMIT.md) - 5步完成项目提交
-- [提交检查清单](SUBMISSION_CHECKLIST.md) - 提交前检查清单
 
 ## 🎓 技术亮点
 

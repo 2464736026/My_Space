@@ -1,12 +1,13 @@
 """
 API配置文件
-请在此文件中填写你的OpenAI API密钥
+支持从环境变量读取配置（Vercel部署）或使用本地配置（本地开发）
 """
+import os
 
-# OpenAI API配置
-OPENAI_API_KEY = "sk-R4Z3s07Fvg0nuvLlLtmMNe7EGRhv8DLhmlicxy9x6tEPRd7m"  # 请替换为你的实际API密钥
-OPENAI_MODEL = "gpt-3.5-turbo"  # 或使用 "gpt-4" 获得更好效果
-OPENAI_BASE_URL = "https://api.openai-proxy.org/v1"  # newapi用户请修改为你的newapi地址
+# OpenAI API配置 - 优先从环境变量读取（Vercel），否则使用本地配置
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-R4Z3s07Fvg0nuvLlLtmMNe7EGRhv8DLhmlicxy9x6tEPRd7m")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai-proxy.org/v1")
 
 # API调用配置
 MAX_TOKENS = 2000  # 最大返回token数
