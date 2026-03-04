@@ -19,13 +19,27 @@ echo.
 
 echo [2/5] 安装依赖到本地...
 echo 这可能需要几分钟，请耐心等待...
-pip install -r requirements.txt -t python --no-cache-dir
+echo.
+echo 使用预编译的二进制包（无需 Rust）...
+pip install -r requirements.txt -t python --only-binary=:all: --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple
 if errorlevel 1 (
+    echo.
     echo ✗ 依赖安装失败
     echo.
-    echo 请确保已安装 Python 和 pip
-    pause
-    exit /b 1
+    echo 尝试使用默认源重新安装...
+    pip install -r requirements.txt -t python --only-binary=:all: --no-cache-dir
+    if errorlevel 1 (
+        echo.
+        echo ✗ 依赖安装失败
+        echo.
+        echo 请检查：
+        echo   1. Python 版本是否为 3.9 或 3.10
+        echo   2. pip 是否已更新到最新版本
+        echo   3. 网络连接是否正常
+        echo.
+        pause
+        exit /b 1
+    )
 )
 echo ✓ 依赖安装完成
 echo.
