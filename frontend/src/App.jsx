@@ -45,7 +45,7 @@ const { Panel } = Collapse;
 
 // API配置
 const API_BASE_URL = import.meta.env.PROD 
-  ? 'https://your-project-name.vercel.app' 
+  ? 'https://my-space-beryl.vercel.app' 
   : 'http://localhost:8000';
 
 function App() {
