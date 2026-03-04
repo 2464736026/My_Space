@@ -9,15 +9,36 @@ from typing import Optional, Dict, Any
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(__file__))
 
-try:
-    from services.pdf_parser import PDFParser
-    from services.ai_service import AIService
-    from utils.cache import CacheManager
-except ImportError as e:
-    print(f"Import error: {e}")
-    print(f"Current directory: {os.getcwd()}")
-    print(f"Directory contents: {os.listdir('.')}")
-    raise
+# 延迟导入，避免在模块加载时就失败
+pdf_parser = None
+cache_manager = None
+PDFParser = None
+AIService = None
+CacheManager = None
+
+def lazy_import():
+    """延迟导入依赖模块"""
+    global pdf_parser, cache_manager, PDFParser, AIService, CacheManager
+    
+    if PDFParser is None:
+        try:
+            from services.pdf_parser import PDFParser as _PDFParser
+            from services.ai_service import AIService as _AIService
+            from utils.cache import CacheManager as _CacheManager
+            
+            PDFParser = _PDFParser
+            AIService = _AIService
+            CacheManager = _CacheManager
+            
+            pdf_parser = PDFParser()
+            cache_manager = CacheManager()
+            
+            print("Successfully imported all services")
+        except ImportError as e:
+            print(f"Import error: {e}")
+            print(f"Current directory: {os.getcwd()}")
+            print(f"Directory contents: {os.listdir('.')}")
+            raise
 
 app = FastAPI(title="AI Resume Analyzer", version="1.0.0")
 
@@ -30,9 +51,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 初始化服务
-pdf_parser = PDFParser()
-cache_manager = CacheManager()
+# 全局AI服务实例
 ai_service = None
 
 def get_ai_service():
@@ -40,6 +59,7 @@ def get_ai_service():
     global ai_service
     if ai_service is None:
         try:
+            lazy_import()  # 确保已导入
             ai_service = AIService()
         except ValueError as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -93,6 +113,8 @@ async def health_check():
 async def upload_resume(file: UploadFile = File(...)):
     """上传并解析简历"""
     try:
+        lazy_import()  # 确保已导入
+        
         print(f"Received file: {file.filename}")
         
         if not file.filename.endswith('.pdf'):
@@ -136,6 +158,8 @@ async def upload_resume(file: UploadFile = File(...)):
 async def match_job(request_data: dict):
     """简历与岗位匹配评分"""
     try:
+        lazy_import()  # 确保已导入
+        
         resume_id = request_data.get("resume_id")
         if not resume_id:
             raise HTTPException(status_code=400, detail="缺少resume_id参数")
