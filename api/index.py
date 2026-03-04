@@ -107,3 +107,8 @@ async def match_job(request_data: dict):
         raise
     except Exception as e:
         return ResumeAnalysisResponse(success=False, message=f"匹配评分失败: {str(e)}")
+
+
+# Vercel Serverless Function Handler
+from mangum import Mangum
+handler = Mangum(app, lifespan="off")
