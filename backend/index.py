@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-阿里云函数计算入口 - 事件函数格式
+阿里云函数计算入口 - 兼容多种触发器格式
 """
 import sys
 import os
@@ -12,15 +12,55 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 def handler(event, context):
     """
-    阿里云 FC 事件函数处理器
-    
-    Args:
-        event: 事件对象，包含请求信息
-        context: 上下文对象，包含函数运行时信息
-    
-    Returns:
-        dict: HTTP 响应对象
+    阿里云 FC 统一处理函数
+    自动检测是 HTTP 触发器还是事件触发器
     """
+    try:
+        # 检查是否是 WSGI 格式（HTTP 触发器的旧格式）
+        # 如果 event 是 dict 且包含 environ 相关的键
+        if isinstance(event, dict) and 'REQUEST_METHOD' in str(event):
+            return handle_http_event(event, context)
+        
+        # 检查是否是标准 HTTP 事件格式
+        if isinstance(event, (dict, str, bytes)):
+            return handle_http_event(event, context)
+        
+        # 默认返回健康检查
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+            },
+            'body': json.dumps({
+                'message': 'AI Resume Analyzer API',
+                'version': '1.0.0',
+                'status': 'healthy'
+            })
+        }
+        
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Handler Error: {error_detail}")
+        
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+            },
+            'body': json.dumps({
+                'success': False,
+                'error': str(e),
+                'message': 'Internal Server Error',
+                'detail': error_detail
+            })
+        }
+
+
+def handle_http_event(event, context):
+    """处理 HTTP 事件"""
     try:
         # 导入 FastAPI 应用
         from app.main import app
@@ -29,22 +69,25 @@ def handler(event, context):
         # 创建测试客户端
         client = TestClient(app)
         
-        # 解析事件对象
-        # 阿里云 FC HTTP 触发器会将请求信息放在 event 中
+        # 解析事件
         if isinstance(event, bytes):
             event = json.loads(event.decode('utf-8'))
         elif isinstance(event, str):
             event = json.loads(event)
         
         # 获取请求信息
-        method = event.get('method', 'GET').upper()
-        path = event.get('path', '/')
-        query_string = event.get('queryString', '')
-        headers = event.get('headers', {})
+        method = event.get('method', event.get('httpMethod', 'GET')).upper()
+        path = event.get('path', event.get('requestPath', '/'))
+        query_string = event.get('queryString', event.get('queryParameters', ''))
+        headers = event.get('headers', event.get('requestHeaders', {}))
         body = event.get('body', '')
         
         # 构建完整路径
         if query_string:
+            if isinstance(query_string, dict):
+                # 如果是字典，转换为查询字符串
+                query_parts = [f"{k}={v}" for k, v in query_string.items()]
+                query_string = '&'.join(query_parts)
             full_path = f"{path}?{query_string}"
         else:
             full_path = path
@@ -69,7 +112,7 @@ def handler(event, context):
         else:
             response = client.get(full_path, headers=headers)
         
-        # 构建响应对象
+        # 构建响应
         return {
             'statusCode': response.status_code,
             'headers': {
@@ -82,10 +125,9 @@ def handler(event, context):
         }
         
     except Exception as e:
-        # 错误处理
         import traceback
         error_detail = traceback.format_exc()
-        print(f"Handler Error: {error_detail}")
+        print(f"HTTP Handler Error: {error_detail}")
         
         return {
             'statusCode': 500,
@@ -96,6 +138,7 @@ def handler(event, context):
             'body': json.dumps({
                 'success': False,
                 'error': str(e),
-                'message': 'Internal Server Error'
+                'message': 'Internal Server Error',
+                'detail': error_detail
             })
         }
