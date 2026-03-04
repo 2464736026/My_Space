@@ -6,8 +6,14 @@ import sys
 import os
 import json
 
-# 添加当前目录到路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 添加当前目录和 python 目录到路径（必须在最前面）
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
+sys.path.insert(0, os.path.join(current_dir, 'python'))
+
+# 打印路径信息用于调试
+print(f"Current directory: {current_dir}")
+print(f"Python path: {sys.path[:3]}")
 
 
 def handler(event, context):
@@ -63,7 +69,10 @@ def handle_http_event(event, context):
     """处理 HTTP 事件"""
     try:
         # 导入 FastAPI 应用
+        print("Attempting to import app.main...")
         from app.main import app
+        print("Successfully imported app.main")
+        
         from starlette.testclient import TestClient
         
         # 创建测试客户端
@@ -81,6 +90,8 @@ def handle_http_event(event, context):
         query_string = event.get('queryString', event.get('queryParameters', ''))
         headers = event.get('headers', event.get('requestHeaders', {}))
         body = event.get('body', '')
+        
+        print(f"Processing request: {method} {path}")
         
         # 构建完整路径
         if query_string:
@@ -111,6 +122,8 @@ def handle_http_event(event, context):
             response = client.options(full_path, headers=headers)
         else:
             response = client.get(full_path, headers=headers)
+        
+        print(f"Response status: {response.status_code}")
         
         # 构建响应
         return {
