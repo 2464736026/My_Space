@@ -1,18 +1,18 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Transform: 'Aliyun::Serverless-2018-04-03'
 Resources:
-  resume-analyzer:
+  ResumeAnalyzer:
     Type: 'Aliyun::Serverless::Service'
     Properties:
       Description: 'AI Resume Analyzer Service'
       InternetAccess: true
-    api:
+    Api:
       Type: 'Aliyun::Serverless::Function'
       Properties:
         Description: 'Resume analyzer API'
         CodeUri: './'
-        Handler: app.main:app
-        Runtime: python3.9
+        Handler: index.handler
+        Runtime: python3.10
         Timeout: 60
         MemorySize: 1024
         EnvironmentVariables:
@@ -20,7 +20,7 @@ Resources:
           OPENAI_MODEL: 'gpt-3.5-turbo'
           OPENAI_BASE_URL: 'https://api.openai-proxy.org/v1'
         Events:
-          httpTrigger:
+          HttpTrigger:
             Type: HTTP
             Properties:
               AuthType: ANONYMOUS
