@@ -45,7 +45,7 @@ const { Panel } = Collapse;
 
 // API配置
 const API_BASE_URL = import.meta.env.PROD 
-  ? 'https://your-fc-domain.com' 
+  ? 'https://api-lanxianlei.cn-hangzhou.fcapp.run' 
   : 'http://localhost:8000';
 
 function App() {
