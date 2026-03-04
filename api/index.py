@@ -68,13 +68,19 @@ def get_ai_service():
 class JobRequirement(BaseModel):
     job_title: str
     job_description: str
-    required_skills: Optional[str] = ""
-    experience_level: Optional[str] = ""
+    required_skills: str = ""
+    experience_level: str = ""
+    
+    class Config:
+        arbitrary_types_allowed = True
 
 class ResumeAnalysisResponse(BaseModel):
     success: bool
     data: Optional[Dict[str, Any]] = None
     message: str = ""
+    
+    class Config:
+        arbitrary_types_allowed = True
 
 @app.get("/")
 async def root():
@@ -109,7 +115,7 @@ async def health_check():
             "traceback": traceback.format_exc()
         }
 
-@app.post("/api/upload-resume", response_model=ResumeAnalysisResponse)
+@app.post("/api/upload-resume")
 async def upload_resume(file: UploadFile = File(...)):
     """上传并解析简历"""
     try:
@@ -138,23 +144,23 @@ async def upload_resume(file: UploadFile = File(...)):
         resume_id = cache_manager.cache_resume(extracted_info, text_content)
         print(f"Resume cached with ID: {resume_id}")
         
-        return ResumeAnalysisResponse(
-            success=True,
-            data={
+        return {
+            "success": True,
+            "data": {
                 "resume_id": resume_id,
                 "extracted_info": extracted_info,
                 "text_preview": text_content[:500] + "..." if len(text_content) > 500 else text_content
             },
-            message="简历解析成功"
-        )
+            "message": "简历解析成功"
+        }
     except HTTPException:
         raise
     except Exception as e:
         print(f"Error in upload_resume: {str(e)}")
         print(traceback.format_exc())
-        return ResumeAnalysisResponse(success=False, message=f"简历解析失败: {str(e)}")
+        return {"success": False, "message": f"简历解析失败: {str(e)}"}
 
-@app.post("/api/match-job", response_model=ResumeAnalysisResponse)
+@app.post("/api/match-job")
 async def match_job(request_data: dict):
     """简历与岗位匹配评分"""
     try:
@@ -178,11 +184,11 @@ async def match_job(request_data: dict):
         ai = get_ai_service()
         match_result = ai.analyze_job_match(resume_data["extracted_info"], job_req.dict())
         
-        return ResumeAnalysisResponse(success=True, data=match_result, message="匹配评分完成")
+        return {"success": True, "data": match_result, "message": "匹配评分完成"}
     except HTTPException:
         raise
     except Exception as e:
-        return ResumeAnalysisResponse(success=False, message=f"匹配评分失败: {str(e)}")
+        return {"success": False, "message": f"匹配评分失败: {str(e)}"}
 
 
 # Vercel Serverless Function Handler
