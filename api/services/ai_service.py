@@ -104,23 +104,37 @@ class AIService:
     
     def __init__(self):
         """初始化OpenAI客户端"""
+        print(f"Initializing AIService...")
+        print(f"OPENAI_API_KEY exists: {bool(OPENAI_API_KEY)}")
+        print(f"OPENAI_API_KEY length: {len(OPENAI_API_KEY) if OPENAI_API_KEY else 0}")
+        print(f"OPENAI_MODEL: {OPENAI_MODEL}")
+        print(f"OPENAI_BASE_URL: {OPENAI_BASE_URL}")
+        
         if not OPENAI_API_KEY or OPENAI_API_KEY == "your-openai-api-key-here":
-            raise ValueError(
+            error_msg = (
                 "请配置 OPENAI_API_KEY 环境变量！\n"
                 "获取API密钥：https://platform.openai.com/api-keys"
             )
+            print(f"ERROR: {error_msg}")
+            raise ValueError(error_msg)
         
-        # 初始化OpenAI客户端
-        client_params = {
-            "api_key": OPENAI_API_KEY,
-            "timeout": TIMEOUT
-        }
-        
-        if OPENAI_BASE_URL:
-            client_params["base_url"] = OPENAI_BASE_URL
-        
-        self.client = OpenAI(**client_params)
-        self.model = OPENAI_MODEL
+        try:
+            # 初始化OpenAI客户端
+            client_params = {
+                "api_key": OPENAI_API_KEY,
+                "timeout": TIMEOUT
+            }
+            
+            if OPENAI_BASE_URL:
+                client_params["base_url"] = OPENAI_BASE_URL
+            
+            print(f"Creating OpenAI client with params: {list(client_params.keys())}")
+            self.client = OpenAI(**client_params)
+            self.model = OPENAI_MODEL
+            print("OpenAI client created successfully")
+        except Exception as e:
+            print(f"Failed to create OpenAI client: {str(e)}")
+            raise
     
     def extract_resume_info(self, resume_text: str) -> Dict[str, Any]:
         """

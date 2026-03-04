@@ -1,0 +1,12 @@
+backend/
+frontend/
+.git/
+.github/
+.vscode/
+*.md
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python

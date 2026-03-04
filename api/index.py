@@ -2,11 +2,22 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
+import sys
+import traceback
 from typing import Optional, Dict, Any
 
-from services.pdf_parser import PDFParser
-from services.ai_service import AIService
-from utils.cache import CacheManager
+# 添加当前目录到Python路径
+sys.path.insert(0, os.path.dirname(__file__))
+
+try:
+    from services.pdf_parser import PDFParser
+    from services.ai_service import AIService
+    from utils.cache import CacheManager
+except ImportError as e:
+    print(f"Import error: {e}")
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Directory contents: {os.listdir('.')}")
+    raise
 
 app = FastAPI(title="AI Resume Analyzer", version="1.0.0")
 
@@ -47,24 +58,63 @@ class ResumeAnalysisResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "AI Resume Analyzer API", "version": "1.0.0"}
+    """健康检查端点"""
+    return {
+        "message": "AI Resume Analyzer API", 
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": [
+            "/api/upload-resume",
+            "/api/match-job"
+        ]
+    }
+
+@app.get("/api/health")
+async def health_check():
+    """详细健康检查"""
+    try:
+        # 检查环境变量
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        
+        return {
+            "status": "healthy",
+            "openai_configured": bool(api_key and len(api_key) > 20),
+            "openai_model": os.getenv("OPENAI_MODEL", "not set"),
+            "openai_base_url": os.getenv("OPENAI_BASE_URL", "not set")
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
 
 @app.post("/api/upload-resume", response_model=ResumeAnalysisResponse)
 async def upload_resume(file: UploadFile = File(...)):
     """上传并解析简历"""
     try:
+        print(f"Received file: {file.filename}")
+        
         if not file.filename.endswith('.pdf'):
             raise HTTPException(status_code=400, detail="只支持PDF格式文件")
         
         content = await file.read()
+        print(f"File size: {len(content)} bytes")
+        
         text_content = pdf_parser.extract_text(content)
+        print(f"Extracted text length: {len(text_content)}")
         
         if not text_content or len(text_content) < 50:
             raise HTTPException(status_code=400, detail="PDF文件内容为空或无法解析")
         
         ai = get_ai_service()
+        print("AI service initialized")
+        
         extracted_info = ai.extract_resume_info(text_content)
+        print(f"Extracted info: {extracted_info}")
+        
         resume_id = cache_manager.cache_resume(extracted_info, text_content)
+        print(f"Resume cached with ID: {resume_id}")
         
         return ResumeAnalysisResponse(
             success=True,
@@ -78,6 +128,8 @@ async def upload_resume(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Error in upload_resume: {str(e)}")
+        print(traceback.format_exc())
         return ResumeAnalysisResponse(success=False, message=f"简历解析失败: {str(e)}")
 
 @app.post("/api/match-job", response_model=ResumeAnalysisResponse)
