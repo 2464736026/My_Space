@@ -1,63 +1,101 @@
 # -*- coding: utf-8 -*-
 """
-阿里云函数计算入口 - 使用 a2wsgi 适配器
+阿里云函数计算入口 - 事件函数格式
 """
 import sys
 import os
+import json
 
 # 添加当前目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# 导入 FastAPI 应用
-from app.main import app
 
-# 使用 a2wsgi 将 ASGI 应用转换为 WSGI
-try:
-    from a2wsgi import ASGIMiddleware
-    # 创建 WSGI 应用
-    application = ASGIMiddleware(app)
-    # 阿里云 FC 需要的 handler
-    handler = application
-except ImportError:
-    # 如果没有 a2wsgi，使用备用方案
-    print("Warning: a2wsgi not found, using fallback handler")
+def handler(event, context):
+    """
+    阿里云 FC 事件函数处理器
     
-    def handler(environ, start_response):
-        """备用 WSGI handler"""
-        import json
-        from datetime import datetime
+    Args:
+        event: 事件对象，包含请求信息
+        context: 上下文对象，包含函数运行时信息
+    
+    Returns:
+        dict: HTTP 响应对象
+    """
+    try:
+        # 导入 FastAPI 应用
+        from app.main import app
+        from starlette.testclient import TestClient
         
-        # 简单的健康检查响应
-        path = environ.get('PATH_INFO', '/')
+        # 创建测试客户端
+        client = TestClient(app)
         
-        if path == '/' or path == '':
-            response_body = json.dumps({
-                "message": "AI Resume Analyzer API",
-                "version": "1.0.0"
-            }).encode('utf-8')
-            
-            status = '200 OK'
-            response_headers = [
-                ('Content-Type', 'application/json'),
-                ('Content-Length', str(len(response_body))),
-                ('Access-Control-Allow-Origin', '*'),
-            ]
-            
-            start_response(status, response_headers)
-            return [response_body]
+        # 解析事件对象
+        # 阿里云 FC HTTP 触发器会将请求信息放在 event 中
+        if isinstance(event, bytes):
+            event = json.loads(event.decode('utf-8'))
+        elif isinstance(event, str):
+            event = json.loads(event)
+        
+        # 获取请求信息
+        method = event.get('method', 'GET').upper()
+        path = event.get('path', '/')
+        query_string = event.get('queryString', '')
+        headers = event.get('headers', {})
+        body = event.get('body', '')
+        
+        # 构建完整路径
+        if query_string:
+            full_path = f"{path}?{query_string}"
         else:
-            # 其他路径返回404
-            response_body = json.dumps({
-                "error": "Not Found",
-                "message": "Please install a2wsgi: pip install a2wsgi"
-            }).encode('utf-8')
-            
-            status = '404 Not Found'
-            response_headers = [
-                ('Content-Type', 'application/json'),
-                ('Content-Length', str(len(response_body))),
-                ('Access-Control-Allow-Origin', '*'),
-            ]
-            
-            start_response(status, response_headers)
-            return [response_body]
+            full_path = path
+        
+        # 处理请求体
+        if isinstance(body, str):
+            request_body = body.encode('utf-8')
+        else:
+            request_body = body if body else b''
+        
+        # 调用 FastAPI 应用
+        if method == 'GET':
+            response = client.get(full_path, headers=headers)
+        elif method == 'POST':
+            response = client.post(full_path, content=request_body, headers=headers)
+        elif method == 'PUT':
+            response = client.put(full_path, content=request_body, headers=headers)
+        elif method == 'DELETE':
+            response = client.delete(full_path, headers=headers)
+        elif method == 'OPTIONS':
+            response = client.options(full_path, headers=headers)
+        else:
+            response = client.get(full_path, headers=headers)
+        
+        # 构建响应对象
+        return {
+            'statusCode': response.status_code,
+            'headers': {
+                'Content-Type': response.headers.get('content-type', 'application/json'),
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': '*',
+            },
+            'body': response.text
+        }
+        
+    except Exception as e:
+        # 错误处理
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Handler Error: {error_detail}")
+        
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+            },
+            'body': json.dumps({
+                'success': False,
+                'error': str(e),
+                'message': 'Internal Server Error'
+            })
+        }
