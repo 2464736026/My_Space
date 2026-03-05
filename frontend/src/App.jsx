@@ -77,7 +77,21 @@ function App() {
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
         
+        console.log(`开始处理文件: ${file.name}, 大小: ${(file.size / 1024).toFixed(2)}KB`);
+        
         try {
+          // 检查文件大小（限制4MB）
+          if (file.size > 4 * 1024 * 1024) {
+            message.error(`${file.name} 文件过大（超过4MB），请压缩后重试`);
+            continue;
+          }
+
+          // 检查文件类型
+          if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
+            message.error(`${file.name} 不是PDF文件`);
+            continue;
+          }
+
           // 创建PDF预览URL
           const pdfBlobUrl = URL.createObjectURL(file);
           
@@ -85,22 +99,41 @@ function App() {
           const formData = new FormData();
           formData.append('file', file);
 
+          console.log(`正在上传: ${file.name} 到 ${API_BASE_URL}/api/upload-resume`);
+
           const uploadResponse = await axios.post(`${API_BASE_URL}/api/upload-resume`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
+            headers: { 
+              'Content-Type': 'multipart/form-data'
+            },
+            timeout: 60000, // 60秒超时
+            onUploadProgress: (progressEvent) => {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              console.log(`上传进度: ${percentCompleted}%`);
+            }
           });
 
+          console.log(`上传响应:`, uploadResponse.data);
+
           if (!uploadResponse.data.success) {
-            message.error(`${file.name} 上传失败`);
+            const errorMsg = uploadResponse.data.message || '上传失败';
+            console.error(`${file.name} 上传失败:`, errorMsg);
+            message.error(`${file.name} ${errorMsg}`);
             continue;
           }
 
           const resumeData = uploadResponse.data.data;
+          console.log(`简历解析成功，ID: ${resumeData.resume_id}`);
 
           // 2. 立即进行岗位匹配
+          console.log(`开始岗位匹配分析...`);
           const matchResponse = await axios.post(`${API_BASE_URL}/api/match-job`, {
             resume_id: resumeData.resume_id,
             ...jobRequirement
+          }, {
+            timeout: 60000 // 60秒超时
           });
+
+          console.log(`匹配响应:`, matchResponse.data);
 
           if (matchResponse.data.success) {
             newCandidates.push({
@@ -112,11 +145,38 @@ function App() {
               pdfUrl: pdfBlobUrl // 保存PDF预览URL
             });
             message.success(`✅ ${file.name} 分析完成`);
+          } else {
+            const errorMsg = matchResponse.data.message || '匹配分析失败';
+            console.error(`${file.name} 匹配失败:`, errorMsg);
+            message.error(`${file.name} ${errorMsg}`);
           }
         } catch (error) {
-          console.error(`Error processing ${file.name}:`, error);
-          message.error(`${file.name} 处理失败`);
+          console.error(`处理 ${file.name} 时出错:`, error);
+          
+          // 详细的错误信息
+          if (error.response) {
+            // 服务器返回错误响应
+            console.error('错误响应状态:', error.response.status);
+            console.error('错误响应数据:', error.response.data);
+            console.error('错误响应头:', error.response.headers);
+            
+            const errorMsg = error.response.data?.message || `服务器错误 (${error.response.status})`;
+            message.error(`${file.name} ${errorMsg}`);
+          } else if (error.request) {
+            // 请求已发送但没有收到响应
+            console.error('未收到响应:', error.request);
+            message.error(`${file.name} 网络错误，请检查连接`);
+          } else {
+            // 其他错误
+            console.error('错误信息:', error.message);
+            message.error(`${file.name} 处理失败: ${error.message}`);
+          }
         }
+      }
+
+      if (newCandidates.length === 0) {
+        message.warning('没有成功分析的简历，请检查文件格式和网络连接');
+        return;
       }
 
       // 按评分排序（从高到低）
@@ -131,8 +191,8 @@ function App() {
       message.success(`🎉 共分析 ${newCandidates.length} 份简历，已按匹配度排序`);
       
     } catch (error) {
-      console.error('Batch upload error:', error);
-      message.error('批量上传失败');
+      console.error('批量上传错误:', error);
+      message.error('批量上传失败，请查看控制台了解详情');
     } finally {
       setLoading(false);
     }
