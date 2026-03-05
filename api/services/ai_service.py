@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 from openai import OpenAI
 
 # 直接从环境变量读取配置
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-R4Z3s07Fvg0nuvLlLtmMNe7EGRhv8DLhmlicxy9x6tEPRd7m")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai-proxy.org/v1")
 MAX_TOKENS = 2000
