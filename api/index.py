@@ -128,11 +128,27 @@ class handler(BaseHTTPRequestHandler):
     def _handle_upload_resume(self):
         """处理简历上传"""
         try:
+            print("=== Starting upload_resume handler ===")
+            
             # 确保服务已导入
-            lazy_import()
+            try:
+                print("Attempting to import services...")
+                lazy_import()
+                print("Services imported successfully")
+            except Exception as import_error:
+                print(f"Import error: {str(import_error)}")
+                print(traceback.format_exc())
+                self._send_json_response(500, {
+                    "success": False,
+                    "message": f"服务初始化失败: {str(import_error)}",
+                    "error_type": "import_error"
+                })
+                return
             
             # 读取multipart/form-data
             content_type = self.headers.get('Content-Type', '')
+            print(f"Content-Type: {content_type}")
+            
             if 'multipart/form-data' not in content_type:
                 self._send_json_response(400, {
                     "success": False,
@@ -141,53 +157,84 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             # 获取boundary
-            boundary = content_type.split('boundary=')[1].encode()
+            try:
+                boundary = content_type.split('boundary=')[1].encode()
+                print(f"Boundary extracted: {boundary[:20]}...")
+            except Exception as boundary_error:
+                print(f"Boundary extraction error: {str(boundary_error)}")
+                self._send_json_response(400, {
+                    "success": False,
+                    "message": "无法解析boundary"
+                })
+                return
             
             # 读取请求体
             content_length = int(self.headers.get('Content-Length', 0))
+            print(f"Content-Length: {content_length}")
             body = self.rfile.read(content_length)
+            print(f"Body read: {len(body)} bytes")
             
             # 解析multipart数据
             parts = body.split(b'--' + boundary)
+            print(f"Found {len(parts)} parts")
+            
             pdf_content = None
             filename = None
             
-            for part in parts:
+            for i, part in enumerate(parts):
                 if b'Content-Disposition' in part and b'filename=' in part:
+                    print(f"Found file in part {i}")
                     # 提取文件名
                     lines = part.split(b'\r\n')
                     for line in lines:
                         if b'filename=' in line:
-                            filename = line.decode().split('filename="')[1].split('"')[0]
+                            filename = line.decode('utf-8', errors='ignore').split('filename="')[1].split('"')[0]
+                            print(f"Filename: {filename}")
                             break
                     
                     # 提取文件内容
                     content_start = part.find(b'\r\n\r\n') + 4
                     content_end = len(part) - 2  # 移除末尾的\r\n
                     pdf_content = part[content_start:content_end]
+                    print(f"PDF content extracted: {len(pdf_content)} bytes")
                     break
             
             if not pdf_content or not filename:
+                print("ERROR: No PDF content or filename found")
                 self._send_json_response(400, {
                     "success": False,
                     "message": "未找到PDF文件"
                 })
                 return
             
-            if not filename.endswith('.pdf'):
+            if not filename.lower().endswith('.pdf'):
+                print(f"ERROR: Not a PDF file: {filename}")
                 self._send_json_response(400, {
                     "success": False,
                     "message": "只支持PDF格式文件"
                 })
                 return
             
-            print(f"Received file: {filename}, size: {len(pdf_content)} bytes")
+            print(f"Processing file: {filename}, size: {len(pdf_content)} bytes")
             
             # 解析PDF
-            text_content = pdf_parser.extract_text(pdf_content)
-            print(f"Extracted text length: {len(text_content)}")
+            try:
+                print("Starting PDF extraction...")
+                text_content = pdf_parser.extract_text(pdf_content)
+                print(f"PDF extraction successful. Text length: {len(text_content)}")
+                print(f"Text preview: {text_content[:200]}...")
+            except Exception as pdf_error:
+                print(f"PDF extraction error: {str(pdf_error)}")
+                print(traceback.format_exc())
+                self._send_json_response(500, {
+                    "success": False,
+                    "message": f"PDF解析失败: {str(pdf_error)}",
+                    "error_type": "pdf_parse_error"
+                })
+                return
             
             if not text_content or len(text_content) < 50:
+                print(f"ERROR: Text content too short: {len(text_content)} chars")
                 self._send_json_response(400, {
                     "success": False,
                     "message": "PDF文件内容为空或无法解析"
@@ -195,14 +242,37 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             # AI提取信息
-            extracted_info = ai_service.extract_resume_info(text_content)
-            print(f"Extracted info: {extracted_info}")
+            try:
+                print("Starting AI extraction...")
+                extracted_info = ai_service.extract_resume_info(text_content)
+                print(f"AI extraction successful: {extracted_info}")
+            except Exception as ai_error:
+                print(f"AI extraction error: {str(ai_error)}")
+                print(traceback.format_exc())
+                self._send_json_response(500, {
+                    "success": False,
+                    "message": f"AI分析失败: {str(ai_error)}",
+                    "error_type": "ai_error"
+                })
+                return
             
             # 缓存简历
-            resume_id = cache_manager.cache_resume(extracted_info, text_content)
-            print(f"Resume cached with ID: {resume_id}")
+            try:
+                print("Caching resume...")
+                resume_id = cache_manager.cache_resume(extracted_info, text_content)
+                print(f"Resume cached with ID: {resume_id}")
+            except Exception as cache_error:
+                print(f"Cache error: {str(cache_error)}")
+                print(traceback.format_exc())
+                self._send_json_response(500, {
+                    "success": False,
+                    "message": f"缓存失败: {str(cache_error)}",
+                    "error_type": "cache_error"
+                })
+                return
             
             # 返回结果
+            print("=== Upload successful ===")
             self._send_json_response(200, {
                 "success": True,
                 "data": {
@@ -214,11 +284,14 @@ class handler(BaseHTTPRequestHandler):
             })
             
         except Exception as e:
-            print(f"Error in upload_resume: {str(e)}")
+            print(f"=== FATAL ERROR in upload_resume ===")
+            print(f"Error: {str(e)}")
+            print(f"Error type: {type(e).__name__}")
             print(traceback.format_exc())
             self._send_json_response(500, {
                 "success": False,
-                "message": f"简历解析失败: {str(e)}"
+                "message": f"服务器错误: {str(e)}",
+                "error_type": type(e).__name__
             })
     
     def _handle_match_job(self):
