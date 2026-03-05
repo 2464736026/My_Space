@@ -1,11 +1,13 @@
 """
 AI服务 - 使用OpenAI API处理简历分析
+直接使用HTTP请求，避免依赖问题
 """
 import json
 import re
 import os
+import urllib.request
+import urllib.error
 from typing import Dict, Any, Optional
-from openai import OpenAI
 
 # 直接从环境变量读取配置
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -103,37 +105,68 @@ class AIService:
     """AI服务类 - 处理所有AI相关的操作"""
     
     def __init__(self):
-        """初始化OpenAI客户端"""
+        """初始化AI服务"""
         print(f"Initializing AIService...")
         print(f"OPENAI_API_KEY exists: {bool(OPENAI_API_KEY)}")
         print(f"OPENAI_API_KEY length: {len(OPENAI_API_KEY) if OPENAI_API_KEY else 0}")
         print(f"OPENAI_MODEL: {OPENAI_MODEL}")
         print(f"OPENAI_BASE_URL: {OPENAI_BASE_URL}")
         
-        if not OPENAI_API_KEY or OPENAI_API_KEY == "your-openai-api-key-here":
-            error_msg = (
-                "请配置 OPENAI_API_KEY 环境变量！\n"
-                "获取API密钥：https://platform.openai.com/api-keys"
-            )
+        if not OPENAI_API_KEY:
+            error_msg = "请配置 OPENAI_API_KEY 环境变量！"
             print(f"ERROR: {error_msg}")
             raise ValueError(error_msg)
         
+        self.api_key = OPENAI_API_KEY
+        self.model = OPENAI_MODEL
+        self.base_url = OPENAI_BASE_URL.rstrip('/')
+        print("AIService initialized successfully")
+    
+    def _call_openai_api(self, messages: list) -> str:
+        """
+        直接调用OpenAI API
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            API响应内容
+        """
+        url = f"{self.base_url}/chat/completions"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": TEMPERATURE,
+            "max_tokens": MAX_TOKENS
+        }
+        
         try:
-            # 初始化OpenAI客户端
-            client_params = {
-                "api_key": OPENAI_API_KEY,
-                "timeout": TIMEOUT
-            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(data).encode('utf-8'),
+                headers=headers,
+                method='POST'
+            )
             
-            if OPENAI_BASE_URL:
-                client_params["base_url"] = OPENAI_BASE_URL
-            
-            print(f"Creating OpenAI client with params: {list(client_params.keys())}")
-            self.client = OpenAI(**client_params)
-            self.model = OPENAI_MODEL
-            print("OpenAI client created successfully")
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                return result['choices'][0]['message']['content']
+                
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8')
+            print(f"OpenAI API HTTP Error: {e.code} - {error_body}")
+            raise Exception(f"OpenAI API调用失败: {e.code}")
+        except urllib.error.URLError as e:
+            print(f"OpenAI API URL Error: {str(e)}")
+            raise Exception(f"无法连接到OpenAI API: {str(e)}")
         except Exception as e:
-            print(f"Failed to create OpenAI client: {str(e)}")
+            print(f"OpenAI API Error: {str(e)}")
             raise
     
     def extract_resume_info(self, resume_text: str) -> Dict[str, Any]:
@@ -159,18 +192,12 @@ class AIService:
 请严格按照JSON格式返回数据。"""
             
             # 调用OpenAI API
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_message}
-                ],
-                temperature=TEMPERATURE,
-                max_tokens=MAX_TOKENS
-            )
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_message}
+            ]
             
-            # 提取响应内容
-            result_text = response.choices[0].message.content.strip()
+            result_text = self._call_openai_api(messages)
             
             # 解析JSON
             result = self._parse_json_response(result_text)
@@ -213,18 +240,12 @@ class AIService:
             )
             
             # 调用OpenAI API
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "你是一个专业的HR助手，擅长分析简历与岗位的匹配度。"},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=TEMPERATURE,
-                max_tokens=MAX_TOKENS
-            )
+            messages = [
+                {"role": "system", "content": "你是一个专业的HR助手，擅长分析简历与岗位的匹配度。"},
+                {"role": "user", "content": prompt}
+            ]
             
-            # 提取响应内容
-            result_text = response.choices[0].message.content.strip()
+            result_text = self._call_openai_api(messages)
             
             # 解析JSON
             result = self._parse_json_response(result_text)
